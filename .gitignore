@@ -1,0 +1,26 @@
+# Dependencias
+node_modules/
+
+# Variables y credenciales
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Respaldos y datos locales
+resguardos_tpi/
+*.bson
+*.metadata.json
+mongodump.exe
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db
+
+# Configuración de editores
+.vscode/
+.idea/

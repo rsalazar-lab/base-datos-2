@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Catálogo - G-Ventas TPI</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f4f6f9; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .card { border-radius: 10px; border: 1px solid #e2e8f0; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+        .card-header-form { background-color: #e0f2fe !important; color: #0369a1; border-top-left-radius: 10px !important; border-top-right-radius: 10px !important; border-bottom: 1px solid #bae6fd; }
+        .card-header-table { background-color: #f1f5f9 !important; color: #334155; border-top-left-radius: 10px !important; border-top-right-radius: 10px !important; border-bottom: 1px solid #e2e8f0; }
+        .table thead th { background-color: #e2e8f0 !important; color: #475569; font-weight: 600; font-size: 0.85rem; border-bottom: 2px solid #cbd5e1; user-select: none; }
+        .table th.sortable:hover { background-color: #cbd5e1 !important; transition: 0.2s; cursor: pointer; }
+        .table td { vertical-align: middle; color: #495057; }
+        .sort-icon { font-size: 0.75rem; margin-left: 4px; color: #94a3b8; }
+        .fila-inactiva { opacity: 0.6; background-color: #f8fafc !important; }
+    </style>
+</head>
+<body>
+    <!-- Barra de Navegación Principal -->
+    <nav class="navbar navbar-expand-lg navbar-primary bg-primary mb-4 shadow-sm">
+        <div class="container">
+            <a class="navbar-brand fw-bold" href="#">⚙️ G-Ventas | Panel de Administración</a>
+            <a class="btn btn-outline-light btn-sm" href="tienda.html">Ir a la Tienda</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <!-- Formulario para CREATE -->
+        <div class="card mb-4">
+            <div class="card-header card-header-form py-3 fw-bold">
+                ➕ Registrar Nuevo Producto
+            </div>
+            <div class="card-body bg-white">
+                <form id="formProducto" class="row g-3 align-items-center">
+                    <div class="col-md-3">
+                        <input type="text" class="form-control" id="sku" placeholder="Código SKU" required>
+                    </div>
+                    <div class="col-md-4">
+                        <input type="text" class="form-control" id="nombre" placeholder="Nombre del Producto" required>
+                    </div>
+                    <div class="col-md-2">
+                        <input type="number" class="form-control" id="precio" placeholder="Precio ($)" required>
+                    </div>
+                    <div class="col-md-2">
+                        <input type="number" class="form-control" id="stock" placeholder="Stock" required>
+                    </div>
+                    <div class="col-md-1">
+                        <button type="submit" class="btn btn-primary w-100 fw-bold">Crear</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Tabla -->
+        <div class="card">
+            <div class="card-header card-header-table py-3 d-flex justify-content-between align-items-center">
+                <span class="fw-bold">📦 Catálogo de Productos</span>
+                
+                <!-- Interruptor para ver dados de baja -->
+                <!-- <div class="form-check form-switch m-0">
+                    <input class="form-check-input" type="checkbox" id="switchInactivos" onchange="cargarProductos()">
+                    <label class="form-check-label small" for="switchInactivos">Mostrar eliminados</label>
+                </div> -->
+            </div>
+            <div class="card-body p-0 bg-white">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0 border-white">
+                        <thead>
+                            <tr>
+                                <th class="ps-4 sortable py-3" onclick="ordenarTabla('codigo_sku')">
+                                    SKU <span class="sort-icon" id="sort-codigo_sku"></span>
+                                </th>
+                                <th class="sortable py-3" onclick="ordenarTabla('nombre')">
+                                    Nombre <span class="sort-icon" id="sort-nombre"></span>
+                                </th>
+                                <th class="sortable py-3" onclick="ordenarTabla('precio')">
+                                    Precio <span class="sort-icon" id="sort-precio"></span>
+                                </th>
+                                <th class="sortable py-3" onclick="ordenarTabla('stock')">
+                                    Stock <span class="sort-icon" id="sort-stock"></span>
+                                </th>
+                                <th class="text-center pe-4 py-3">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tablaProductos">
+                            <!-- Los datos se inyectarán aquí -->
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="d-flex justify-content-between align-items-center p-3 border-top bg-white" style="border-bottom-left-radius: 10px; border-bottom-right-radius: 10px;">
+                    <span id="infoPaginacion" class="text-muted small">Cargando...</span>
+                    <nav>
+                        <ul class="pagination pagination-sm mb-0" id="paginacionControles"></ul>
+                    </nav>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para UPDATE -->
+    <div class="modal fade" id="modalEditar" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header bg-light border-0">
+                    <h5 class="modal-title fw-bold text-secondary">✏️ Editar Producto</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <form id="formEditar">
+                        <input type="hidden" id="editId">
+                        <div class="mb-3">
+                            <label class="form-label text-muted fw-semibold">Precio de Venta ($)</label>
+                            <input type="number" class="form-control" id="editPrecio" required>
+                        </div>
+                        <div class="mb-4">
+                            <label class="form-label text-muted fw-semibold">Cantidad en Stock</label>
+                            <input type="number" class="form-control" id="editStock" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100 fw-bold">Guardar Cambios</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const API_URL = 'http://localhost:3001/api/productos';
+        const modalEditar = new bootstrap.Modal(document.getElementById('modalEditar'));
+        
+        let listaProductosGlobal = [];
+        let paginaActual = 1;
+        const elementosPorPagina = 5; 
+        let columnaOrdenActual = '';
+        let ordenAscendente = true;
+
+        async function cargarProductos() {
+            try {
+                // 1. Buscamos el elemento en el HTML de forma segura
+                const switchElement = document.getElementById('switchInactivos');
+                
+                // 2. Si el elemento existe, leemos su estado. Si está comentado (null), forzamos false.
+                const incluirInactivos = switchElement ? switchElement.checked : false;
+                
+                // 3. Armamos la URL según la validación anterior
+                const url = incluirInactivos ? `${API_URL}?todos=true` : API_URL;
+                
+                const respuesta = await fetch(url);
+                listaProductosGlobal = await respuesta.json();
+                
+                if (columnaOrdenActual) {
+                    aplicarOrdenamiento(columnaOrdenActual, ordenAscendente);
+                } else {
+                    renderizarTabla();
+                }
+            } catch (error) {
+                document.getElementById('infoPaginacion').innerText = "Error al conectar con el servidor.";
+                console.error("Error en cargarProductos:", error);
+            }
+        }
+
+        function ordenarTabla(columna) {
+            if (columnaOrdenActual === columna) {
+                ordenAscendente = !ordenAscendente;
+            } else {
+                columnaOrdenActual = columna;
+                ordenAscendente = true;
+            }
+            aplicarOrdenamiento(columnaOrdenActual, ordenAscendente);
+        }
+
+        function aplicarOrdenamiento(columna, ascendente) {
+            listaProductosGlobal.sort((a, b) => {
+                let valorA = a[columna];
+                let valorB = b[columna];
+                if (typeof valorA === 'string') valorA = valorA.toLowerCase();
+                if (typeof valorB === 'string') valorB = valorB.toLowerCase();
+                if (valorA < valorB) return ascendente ? -1 : 1;
+                if (valorA > valorB) return ascendente ? 1 : -1;
+                return 0;
+            });
+
+            document.querySelectorAll('.sort-icon').forEach(icon => icon.innerHTML = '');
+            document.getElementById(`sort-${columna}`).innerHTML = ascendente ? '▲' : '▼';
+            
+            paginaActual = 1;
+            renderizarTabla();
+        }
+
+        function renderizarTabla() {
+            const tbody = document.getElementById('tablaProductos');
+            tbody.innerHTML = '';
+            
+            const totalPaginas = Math.ceil(listaProductosGlobal.length / elementosPorPagina);
+            if (paginaActual > totalPaginas) paginaActual = totalPaginas;
+            if (paginaActual < 1) paginaActual = 1;
+
+            const inicio = (paginaActual - 1) * elementosPorPagina;
+            const fin = inicio + elementosPorPagina;
+            const productosPagina = listaProductosGlobal.slice(inicio, fin);
+
+            productosPagina.forEach(prod => {
+                const esActivo = prod.activo !== false;
+                const claseFila = esActivo ? '' : 'fila-inactiva';
+                const badgeClass = prod.stock > 10 ? 'bg-success bg-opacity-75' : (prod.stock > 0 ? 'bg-warning text-dark' : 'bg-danger bg-opacity-75');
+                const badgeInactivo = !esActivo ? ' <span class="badge bg-danger ms-1">Baja</span>' : '';
+
+                let botonesAccion = '';
+                if (esActivo) {
+                    botonesAccion = `
+                        <button class="btn btn-outline-secondary btn-sm px-3" onclick="abrirModalEditar('${prod._id}', ${prod.precio}, ${prod.stock})">Editar</button>
+                        <button class="btn btn-outline-danger btn-sm px-3" onclick="eliminarProducto('${prod._id}')">Eliminar</button>
+                    `;
+                } else {
+                    botonesAccion = `
+                        <button class="btn btn-outline-success btn-sm px-3" onclick="restaurarProducto('${prod._id}')">↻ Restaurar</button>
+                    `;
+                }
+
+                tbody.innerHTML += `
+                    <tr class="${claseFila}">
+                        <td class="ps-4 fw-semibold text-secondary">${prod.codigo_sku}${badgeInactivo}</td>
+                        <td class="fw-medium">${prod.nombre}</td>
+                        <td>$${prod.precio.toLocaleString('es-AR')}</td>
+                        <td><span class="badge ${badgeClass} rounded-pill px-2 py-1">${prod.stock} un.</span></td>
+                        <td class="pe-4">
+                            <div class="d-flex justify-content-center gap-2">
+                                ${botonesAccion}
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            actualizarControlesPaginacion(totalPaginas, inicio, fin);
+        }
+
+        function actualizarControlesPaginacion(totalPaginas, inicio, fin) {
+            const info = document.getElementById('infoPaginacion');
+            if (listaProductosGlobal.length > 0) {
+                let mostradosFin = Math.min(fin, listaProductosGlobal.length);
+                info.innerText = `Mostrando ${inicio + 1} a ${mostradosFin} de ${listaProductosGlobal.length} productos`;
+            } else {
+                info.innerText = "No hay productos disponibles.";
+            }
+
+            const ul = document.getElementById('paginacionControles');
+            ul.innerHTML = '';
+            if (totalPaginas <= 1) return;
+
+            ul.innerHTML += `
+                <li class="page-item ${paginaActual === 1 ? 'disabled' : ''}">
+                    <a class="page-link shadow-none text-secondary" href="#" onclick="cambiarPagina(${paginaActual - 1}, event)">Anterior</a>
+                </li>
+            `;
+
+            for (let i = 1; i <= totalPaginas; i++) {
+                ul.innerHTML += `
+                    <li class="page-item ${paginaActual === i ? 'active' : ''}">
+                        <a class="page-link shadow-none ${paginaActual === i ? 'bg-secondary border-secondary' : 'text-secondary'}" href="#" onclick="cambiarPagina(${i}, event)">${i}</a>
+                    </li>
+                `;
+            }
+
+            ul.innerHTML += `
+                <li class="page-item ${paginaActual === totalPaginas ? 'disabled' : ''}">
+                    <a class="page-link shadow-none text-secondary" href="#" onclick="cambiarPagina(${paginaActual + 1}, event)">Siguiente</a>
+                </li>
+            `;
+        }
+
+        function cambiarPagina(nuevaPagina, evento) {
+            evento.preventDefault();
+            paginaActual = nuevaPagina;
+            renderizarTabla();
+        }
+
+        document.getElementById('formProducto').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const nuevoProducto = {
+                codigo_sku: document.getElementById('sku').value,
+                nombre: document.getElementById('nombre').value,
+                precio: document.getElementById('precio').value,
+                stock: document.getElementById('stock').value
+            };
+            await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(nuevoProducto) });
+            document.getElementById('formProducto').reset();
+            cargarProductos(); 
+        });
+
+        function abrirModalEditar(id, precio, stock) {
+            document.getElementById('editId').value = id;
+            document.getElementById('editPrecio').value = precio;
+            document.getElementById('editStock').value = stock;
+            modalEditar.show();
+        }
+
+        document.getElementById('formEditar').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('editId').value;
+            const actualizacion = { precio: document.getElementById('editPrecio').value, stock: document.getElementById('editStock').value };
+            await fetch(`${API_URL}/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(actualizacion) });
+            modalEditar.hide();
+            cargarProductos();
+        });
+
+        async function eliminarProducto(id) {
+            if(confirm('¿Seguro que deseas dar de baja este producto del catálogo?')) {
+                await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
+                cargarProductos(); 
+            }
+        }
+
+        async function restaurarProducto(id) {
+            if(confirm('¿Deseas restaurar este producto al catálogo activo?')) {
+                await fetch(`${API_URL}/${id}/restaurar`, { method: 'PUT' });
+                cargarProductos(); 
+            }
+        }
+
+        cargarProductos();
+    </script>
+</body>
+</html>

@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Punto de Venta - G-Ventas TPI</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Incorporación de SweetAlert2 para alertas modernas -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        body { background-color: #f4f6f9; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .card { border-radius: 10px; border: 1px solid #e2e8f0; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+        .card-header-store { background-color: #e0f2fe !important; color: #0369a1; border-top-left-radius: 10px !important; border-top-right-radius: 10px !important; border-bottom: 1px solid #bae6fd; }
+        .card-header-cart { background-color: #f1f5f9 !important; color: #334155; border-top-left-radius: 10px !important; border-top-right-radius: 10px !important; border-bottom: 1px solid #e2e8f0; }
+        .producto-item { border-bottom: 1px solid #f1f5f9; padding: 15px 0; }
+        .producto-item:last-child { border-bottom: none; }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-success bg-success mb-4 shadow-sm">
+        <div class="container">
+            <a class="navbar-brand fw-bold" href="#">🛒 G-Ventas | Nueva Compra</a>
+            <a class="btn btn-outline-light btn-sm" href="index.html">Ir al Panel de Administración</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <!-- Selector de Cliente (Linking) -->
+        <div class="card mb-4 shadow-sm">
+            <div class="card-body bg-white d-flex align-items-center gap-3">
+                <label class="fw-bold text-secondary mb-0">👤 Seleccionar Cliente:</label>
+                <select id="selectCliente" class="form-select w-50 bg-light">
+                    <option value="">Cargando clientes...</option>
+                </select>
+                <small class="text-muted">Este ID se guardará como referencia (Linking) en el pedido.</small>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Catálogo de Productos Disponibles -->
+            <div class="col-md-7">
+                <div class="card shadow-sm h-100 d-flex flex-column">
+                    <div class="card-header card-header-store py-3 fw-bold">
+                        🛍️ Productos Disponibles
+                    </div>
+                    <div class="card-body bg-white flex-grow-1" id="contenedorProductos"></div>
+                    <div class="card-footer bg-white border-top-0 pb-3 pt-0">
+                        <div class="d-flex justify-content-between align-items-center border-top pt-3">
+                            <span id="infoPaginacionTienda" class="text-muted small">Cargando...</span>
+                            <nav>
+                                <ul class="pagination pagination-sm mb-0" id="paginacionControlesTienda"></ul>
+                            </nav>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Carrito de Compras -->
+            <div class="col-md-5">
+                <div class="card shadow-sm h-100 d-flex flex-column">
+                    <div class="card-header card-header-cart py-3 fw-bold">
+                        🛒 Carrito Actual
+                    </div>
+                    <div class="card-body bg-white d-flex flex-column flex-grow-1">
+                        
+                        <div id="contenedorCarrito" class="mb-3">
+                            <p class="text-muted text-center mt-4">El carrito está vacío.</p>
+                        </div>
+                        
+                        <div class="border-top pt-3 mt-auto">
+                            <h4 class="d-flex justify-content-between fw-bold text-dark mb-3">
+                                <span>Total:</span>
+                                <span id="totalCarrito">$0</span>
+                            </h4>
+                            <button id="btnConfirmar" class="btn btn-success w-100 fw-bold py-2" onclick="confirmarPedido()" disabled>
+                                Confirmar Pedido
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL_PRODUCTOS = 'http://localhost:3001/api/productos';
+        const API_URL_CLIENTES = 'http://localhost:3001/api/clientes';
+        const API_URL_PEDIDOS = 'http://localhost:3001/api/pedidos';
+        
+        let productosDisponibles = [];
+        let carrito = [];
+        
+        // Variables de paginación
+        let paginaActualTienda = 1;
+        const elementosPorPaginaTienda = 3; 
+
+        // Variables de visualización del carrito
+        const maxItemsCarritoVisibles = 3;
+        let carritoExpandido = false;
+
+        async function cargarClientes() {
+            try {
+                const res = await fetch(API_URL_CLIENTES);
+                const clientes = await res.json();
+                const select = document.getElementById('selectCliente');
+                select.innerHTML = '<option value="" disabled selected>Seleccione un cliente...</option>';
+                
+                clientes.forEach(c => {
+                    select.innerHTML += `<option value="${c._id}">${c.nombre_completo} (${c.email})</option>`;
+                });
+            } catch (error) {
+                console.error('Error al cargar clientes');
+            }
+        }
+
+        async function cargarProductos() {
+            try {
+                const res = await fetch(API_URL_PRODUCTOS);
+                const data = await res.json();
+                productosDisponibles = data.filter(p => p.stock > 0 && p.activo !== false);
+                renderizarProductos();
+            } catch (error) {
+                console.error('Error al cargar productos');
+            }
+        }
+
+        function renderizarProductos() {
+            const contenedor = document.getElementById('contenedorProductos');
+            contenedor.innerHTML = '';
+
+            const totalPaginas = Math.ceil(productosDisponibles.length / elementosPorPaginaTienda);
+            if (paginaActualTienda > totalPaginas) paginaActualTienda = totalPaginas;
+            if (paginaActualTienda < 1) paginaActualTienda = 1;
+
+            const inicio = (paginaActualTienda - 1) * elementosPorPaginaTienda;
+            const fin = inicio + elementosPorPaginaTienda;
+            const productosPagina = productosDisponibles.slice(inicio, fin);
+
+            productosPagina.forEach(prod => {
+                contenedor.innerHTML += `
+                    <div class="producto-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-1 fw-bold text-dark">${prod.nombre} <small class="text-muted">(${prod.codigo_sku})</small></h6>
+                            <span class="badge bg-success bg-opacity-75 rounded-pill">Stock: ${prod.stock}</span>
+                            <span class="ms-2 fw-semibold text-secondary">$${prod.precio.toLocaleString('es-AR')}</span>
+                        </div>
+                        <button class="btn btn-outline-primary btn-sm px-3" onclick="agregarAlCarrito('${prod._id}')">
+                            Agregar
+                        </button>
+                    </div>
+                `;
+            });
+
+            actualizarPaginacionTienda(totalPaginas, inicio, fin);
+        }
+
+        function actualizarPaginacionTienda(totalPaginas, inicio, fin) {
+            const info = document.getElementById('infoPaginacionTienda');
+            if (productosDisponibles.length > 0) {
+                let mostradosFin = Math.min(fin, productosDisponibles.length);
+                info.innerText = `Mostrando ${inicio + 1} a ${mostradosFin} de ${productosDisponibles.length}`;
+            } else {
+                info.innerText = "No hay productos disponibles.";
+            }
+
+            const ul = document.getElementById('paginacionControlesTienda');
+            ul.innerHTML = '';
+            if (totalPaginas <= 1) return;
+
+            ul.innerHTML += `
+                <li class="page-item ${paginaActualTienda === 1 ? 'disabled' : ''}">
+                    <a class="page-link shadow-none text-secondary" href="#" onclick="cambiarPaginaTienda(${paginaActualTienda - 1}, event)">Anterior</a>
+                </li>
+            `;
+
+            for (let i = 1; i <= totalPaginas; i++) {
+                ul.innerHTML += `
+                    <li class="page-item ${paginaActualTienda === i ? 'active' : ''}">
+                        <a class="page-link shadow-none ${paginaActualTienda === i ? 'bg-secondary border-secondary' : 'text-secondary'}" href="#" onclick="cambiarPaginaTienda(${i}, event)">${i}</a>
+                    </li>
+                `;
+            }
+
+            ul.innerHTML += `
+                <li class="page-item ${paginaActualTienda === totalPaginas ? 'disabled' : ''}">
+                    <a class="page-link shadow-none text-secondary" href="#" onclick="cambiarPaginaTienda(${paginaActualTienda + 1}, event)">Siguiente</a>
+                </li>
+            `;
+        }
+
+        function cambiarPaginaTienda(nuevaPagina, evento) {
+            evento.preventDefault();
+            paginaActualTienda = nuevaPagina;
+            renderizarProductos();
+        }
+
+        function guardarCarrito() {
+            localStorage.setItem('gventas_carrito', JSON.stringify(carrito));
+        }
+
+        function cargarCarritoGuardado() {
+            const guardado = localStorage.getItem('gventas_carrito');
+            if (guardado) {
+                carrito = JSON.parse(guardado);
+            }
+            renderizarCarrito();
+        }
+
+        function agregarAlCarrito(idProducto) {
+            const producto = productosDisponibles.find(p => p._id === idProducto);
+            const itemEnCarrito = carrito.find(item => item.producto_id === idProducto);
+
+            if (itemEnCarrito) {
+                if (itemEnCarrito.cantidad < producto.stock) {
+                    itemEnCarrito.cantidad++;
+                } else {
+                    // Alerta moderna para stock agotado
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Stock insuficiente',
+                        text: `Solo hay ${producto.stock} unidades disponibles de ${producto.nombre}.`,
+                        confirmButtonColor: '#0369a1'
+                    });
+                }
+            } else {
+                carrito.push({
+                    producto_id: producto._id,
+                    nombre: producto.nombre,
+                    precio: producto.precio,
+                    cantidad: 1
+                });
+            }
+            guardarCarrito();
+            renderizarCarrito();
+        }
+
+        function eliminarDelCarrito(idProducto) {
+            carrito = carrito.filter(item => item.producto_id !== idProducto);
+            if (carrito.length <= maxItemsCarritoVisibles) {
+                carritoExpandido = false;
+            }
+            guardarCarrito();
+            renderizarCarrito();
+        }
+
+        function alternarVistaCarrito(evento) {
+            evento.preventDefault();
+            carritoExpandido = !carritoExpandido;
+            renderizarCarrito();
+        }
+
+        function renderizarCarrito() {
+            const contenedor = document.getElementById('contenedorCarrito');
+            const btnConfirmar = document.getElementById('btnConfirmar');
+            let total = 0;
+
+            carrito.forEach(item => { total += item.precio * item.cantidad; });
+
+            if (carrito.length === 0) {
+                contenedor.innerHTML = '<p class="text-muted text-center mt-4">El carrito está vacío.</p>';
+                document.getElementById('totalCarrito').innerText = '$0';
+                btnConfirmar.disabled = true;
+                return;
+            }
+
+            contenedor.innerHTML = '';
+            
+            let itemsAMostrar = carrito;
+            if (!carritoExpandido && carrito.length > maxItemsCarritoVisibles) {
+                itemsAMostrar = carrito.slice(0, maxItemsCarritoVisibles);
+            }
+
+            itemsAMostrar.forEach(item => {
+                const subtotal = item.precio * item.cantidad;
+                contenedor.innerHTML += `
+                    <div class="d-flex justify-content-between align-items-center mb-2 p-2 border rounded bg-light">
+                        <div>
+                            <span class="fw-bold d-block" style="font-size: 0.9rem;">${item.nombre}</span>
+                            <small class="text-muted">${item.cantidad} x $${item.precio.toLocaleString('es-AR')}</small>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="fw-bold">$${subtotal.toLocaleString('es-AR')}</span>
+                            <button class="btn btn-sm btn-danger py-0 px-2" onclick="eliminarDelCarrito('${item.producto_id}')">x</button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            if (carrito.length > maxItemsCarritoVisibles) {
+                if (carritoExpandido) {
+                    contenedor.innerHTML += `
+                        <div class="text-center mt-3">
+                            <a href="#" class="text-decoration-none text-primary fw-bold" onclick="alternarVistaCarrito(event)">
+                                🔼 Ocultar elementos
+                            </a>
+                        </div>`;
+                } else {
+                    const ocultos = carrito.length - maxItemsCarritoVisibles;
+                    contenedor.innerHTML += `
+                        <div class="text-center mt-3">
+                            <a href="#" class="text-decoration-none text-primary fw-bold" onclick="alternarVistaCarrito(event)">
+                                🔽 Ver ${ocultos} elementos más...
+                            </a>
+                        </div>`;
+                }
+            }
+
+            document.getElementById('totalCarrito').innerText = `$${total.toLocaleString('es-AR')}`;
+            btnConfirmar.disabled = false;
+        }
+
+        async function confirmarPedido() {
+            const clienteId = document.getElementById('selectCliente').value;
+            
+            // VALIDACIÓN: Si no hay cliente seleccionado, bloqueamos el envío y mostramos alerta moderna
+            if (!clienteId) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Falta información',
+                    text: 'Por favor, seleccione un cliente antes de confirmar el pedido.',
+                    confirmButtonText: 'Entendido',
+                    confirmButtonColor: '#d33'
+                });
+                return; // Esto detiene la ejecución de la función
+            }
+
+            const itemsPedido = carrito.map(item => ({
+                producto_id: item.producto_id,
+                cantidad: item.cantidad
+            }));
+
+            try {
+                const res = await fetch(API_URL_PEDIDOS, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        cliente_id: clienteId,
+                        items: itemsPedido
+                    })
+                });
+
+                if (res.ok) {
+                    // Alerta moderna de Éxito
+                    Swal.fire({
+                        icon: 'success',
+                        title: '¡Pedido Confirmado!',
+                        text: 'El pedido fue procesado exitosamente y el stock ha sido actualizado.',
+                        confirmButtonColor: '#198754'
+                    });
+
+                    carrito = []; 
+                    carritoExpandido = false;
+                    localStorage.removeItem('gventas_carrito');
+                    
+                    renderizarCarrito();
+                    paginaActualTienda = 1; 
+                    cargarProductos(); 
+                } else {
+                    const data = await res.json();
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error al procesar',
+                        text: data.error,
+                        confirmButtonColor: '#d33'
+                    });
+                }
+            } catch (error) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error de conexión',
+                    text: 'Ocurrió un error al intentar comunicarse con el servidor.',
+                    confirmButtonColor: '#d33'
+                });
+            }
+        }
+
+        cargarClientes();
+        cargarProductos();
+        cargarCarritoGuardado();
+    </script>
+</body>
+</html>
