@@ -1,7 +1,12 @@
 const { MongoClient } = require('mongodb');
+require('dotenv').config();
 
-// Tu Connection String correcta (sin corchetes)
-const uri = "mongodb+srv://ronar76_db_user:LFvqxTl5T3snOolq@cluster0.mhoiwtn.mongodb.net/?retryWrites=true&w=majority";
+const uri = process.env.MONGODB_URI;
+
+if (!uri) {
+    throw new Error('Falta la variable de entorno MONGODB_URI. Configúrala en el archivo .env.');
+}
+
 const client = new MongoClient(uri);
 
 async function inicializarBaseDeDatos() {

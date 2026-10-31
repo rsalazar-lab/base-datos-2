@@ -1,13 +1,21 @@
 const express = require('express');
 const cors = require('cors');
+require('dotenv').config();
 const { MongoClient, ObjectId } = require('mongodb');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Reemplaza con tu Connection String de Atlas
-const uri = "mongodb+srv://ronar76_db_user:LFvqxTl5T3snOolq@cluster0.mhoiwtn.mongodb.net/";
+//const uri = Declara una constante llamada uri para almacenar la información de forma segura sin que pueda ser reasignada accidentalmente en el código.
+// process.env Es un objeto global de Node.js que expone el estado de las variables de entorno del sistema Ope.
+const uri = process.env.MONGODB_URI;  
+const port = Number(process.env.PORT) || 3001;
+
+if (!uri) {
+    throw new Error('No está la variable de entorno MONGODB_URI. Configúrala en el archivo .env.');
+}
+
 const client = new MongoClient(uri);
 
 let db, productosCollection, clientesCollection, pedidosCollection;
@@ -26,8 +34,8 @@ async function iniciarServidor() {
     // Le decimos a Express que todas las rutas de ese archivo empiecen con '/api'
     app.use('/api', rutasTienda);
     
-    app.listen(3001, () => {
-        console.log('Backend corriendo en http://localhost:3001');
+    app.listen(port, () => {
+        console.log(`Backend corriendo en http://localhost:${port}`);
     });
 }
 iniciarServidor();

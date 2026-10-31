@@ -16,10 +16,10 @@ echo Destino local: %RUTA_RESPALDO%
 echo ==================================================
 
 :: 4. Ejecutar la herramienta nativa mongodump conectandose remotamente a Atlas
-mongodump --uri="mongodb+srv://ronar76_db_user:LFvqxTl5T3snOolq@cluster0.mhoiwtn.mongodb.net/gventas_tpi" --out="%RUTA_RESPALDO%"
+mongodump --uri="mongodb+srv://ronar76_db_user:LFvqxTl5T3snOolq@cluster0.mhoiwtn.mongodb.net/gventas" --out="%RUTA_RESPALDO%"
 
 echo ==================================================
 echo ¡Respaldo completado exitosamente!
-echo Los archivos BSON y JSON se encuentran en: %RUTA_RESPALDO%\gventas_tpi
+echo Los archivos BSON y JSON se encuentran en: %RUTA_RESPALDO%\gventas
 echo ==================================================
 pause
