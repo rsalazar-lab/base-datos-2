@@ -16,7 +16,8 @@ echo Destino local: %RUTA_RESPALDO%
 echo ==================================================
 
 :: 4. Ejecutar la herramienta nativa mongodump conectandose remotamente a Atlas
-mongodump --uri="mongodb+srv://ronar76_db_user:LFvqxTl5T3snOolq@cluster0.mhoiwtn.mongodb.net/gventas" --out="%RUTA_RESPALDO%"
+@REM  mongodump --uri="mongodb+srv://ronar76_db_user:LFvqxTl5T3snOolq@cluster0.mhoiwtn.mongodb.net/gventas" --out="%RUTA_RESPALDO%"
+mongodump --uri="%MONGO_URI%" --db="gventas" --out="%RUTA_RESPALDO%"
 
 echo ==================================================
 echo ¡Respaldo completado exitosamente!
